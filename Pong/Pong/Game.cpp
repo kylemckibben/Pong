@@ -1,0 +1,277 @@
+#include "Game.h"
+
+// Window constants
+const Uint16 windowWidth = 1024;
+const Uint16 windowHeight = 768;
+
+// Wall constants
+const Uint16 thickness = 15;
+
+// Dividing line ("net") constants
+const Uint16 numSegments = 30;
+const float unit = (windowHeight - thickness) / numSegments;
+const float segmentWidth = 10.0f;
+const float segmentHeight = unit / 2.0f;
+const float segmentX = (windowWidth / 2.0f) - (segmentWidth - 2.0f);
+SDL_FRect segments[numSegments]; // yeah yeah I know it's not a const
+
+// Paddle constants
+const Uint16 paddleHeight = windowHeight / 8;
+
+Game::Game()
+{
+	mTicksCount = 0;
+	mWindow = nullptr;
+	mRenderer = nullptr;
+	mIsRunning = true;
+	mPaddlePos.x = 0.0f;
+	mPaddlePos.y = windowHeight / 2.0f;
+	mPaddleDir = 0;
+	mBallPos.x = windowWidth / 2.0f;
+	mBallPos.y = windowHeight / 2.0f;
+	mBallVel.x = -300.0f;
+	mBallVel.y = 335.0f;
+}
+
+/** Initializes the SDL library with specified subsystems (currently just video),
+*	followed by the game window and renderer, and finally the "net" segments.
+*
+*	Returns:
+*	- (boolean) true on successful initialization, false on failure
+*/
+bool Game::Initialize()
+{
+	bool sdlResult = SDL_InitSubSystem(SDL_INIT_VIDEO);
+	if (!sdlResult)
+	{
+		SDL_Log("Unable to initialize: %s", SDL_GetError());
+		return false;
+	}
+
+	const char* windowTitle = "Game Programming in C++ (Ch1)";
+	const Uint32 windowFlags = 0;
+
+	mWindow = SDL_CreateWindow(windowTitle, windowWidth, windowHeight, windowFlags);
+	if (!mWindow)
+	{
+		SDL_Log("Failed to create window: %s", SDL_GetError());
+		return false;
+	}
+
+	mRenderer = SDL_CreateRenderer(mWindow, NULL);
+	if (!mRenderer)
+	{
+		SDL_Log("Failed to create renderer: %s", SDL_GetError());
+		return false;
+	}
+
+	float segmentY = 0.0f + thickness;
+	for (int i = 0; i < numSegments; i++)
+	{
+		SDL_FRect segment{
+			segmentX,
+			segmentY,
+			segmentWidth,
+			segmentHeight
+		};
+		segments[i] = segment;
+		segmentY += unit;
+	}
+
+	return true;
+}
+
+/** First main step of game loop. Processes the event queue and keyboard state. */
+void Game::ProcessInput()
+{
+	SDL_Event event;
+
+	// Loop through event queue and process accordingly
+	while (SDL_PollEvent(&event))
+	{
+		switch (event.type)
+		{
+		case SDL_EVENT_QUIT:
+			mIsRunning = false;
+			break;
+		}
+	}
+
+	// Handle keyboard inputs
+	const bool* state = SDL_GetKeyboardState(NULL);
+
+	if (state[SDL_SCANCODE_ESCAPE])
+		mIsRunning = false;
+
+	mPaddleDir = 0; // reset paddle direction to avoid drift
+	if (state[SDL_SCANCODE_W])
+		mPaddleDir -= 1;
+	if (state[SDL_SCANCODE_S])
+		mPaddleDir += 1;
+}
+
+/** Second main step of game loop. Update game objects as functions
+*	of delta time so the game runs at the ideal speed regardles of
+*	frame rate.
+*/
+void Game::UpdateGame()
+{
+	// Wait until 16ms has elapsed since last frame.
+	while (SDL_GetTicks() < mTicksCount + 16);
+
+	// Difference in ticks from last frame (converted to seconds).
+	float deltaTime = (SDL_GetTicks() - mTicksCount) / 1000.0f;
+
+	// Clamp delta time value to prevent game from jumping too
+	// far forward in a frame.
+	if (deltaTime > 0.05f)
+		deltaTime = 0.05f;
+
+	// Update the paddle position with guards in place to prevent going off screen
+	// by checking that the center of the paddle remains half the paddle height in
+	// bounds accounting for wall thickness.
+	if (mPaddleDir != 0)
+	{
+		mPaddlePos.y += mPaddleDir * 300.0f * deltaTime;
+		if (mPaddlePos.y < (paddleHeight / 2.0f + thickness))
+			mPaddlePos.y = paddleHeight / 2.0f + thickness;
+		else if (mPaddlePos.y > (windowHeight - paddleHeight / 2.0f - thickness))
+			mPaddlePos.y = windowHeight - paddleHeight / 2.0f - thickness;
+	}
+
+	// Detect when the ball collides with other game objects and update the
+	// direction of velocity.
+
+	// top wall collision
+	if (mBallPos.y <= thickness && mBallVel.y < 0.0f)
+		mBallVel.y *= -1;
+
+	// bottom wall collision
+	if (mBallPos.y >= windowHeight - thickness && mBallVel.y > 0.0f)
+		mBallVel.y *= -1;
+
+	// TEMP: right wall collision
+	if (mBallPos.x >= windowWidth - thickness && mBallVel.x > 0.0f)
+		mBallVel.x *= -1;
+
+	// paddle collision
+	float diff = fabsf(mBallPos.y - mPaddlePos.y);
+	if (diff <= paddleHeight / 2.0f &&
+		(mBallPos.x <= 25.0f && mBallPos.x >= 20.0f) &&
+		mBallVel.x < 0.0f
+		) mBallVel.x *= -1.0f;
+
+	// Reset ball position if it goes off screen
+	if (mBallPos.x < 0.0f)
+	{
+		mBallPos.x = windowWidth / 2.0f;
+		mBallPos.y = windowHeight / 2.0f;
+	}
+
+	// Update the ball position in terms of velocity.
+	mBallPos.x += mBallVel.x * deltaTime;
+	mBallPos.y += mBallVel.y * deltaTime;
+
+	// Update ticks count for next frame.
+	mTicksCount = SDL_GetTicks();
+}
+
+/** Final main step in game loop. Utilizes a double buffer to output
+*	to the screen by making changes to the renderer and then pushing
+*	- calling SDL_RenderPresent - those changes to the screen. This
+*	allows generating new output to happen on the same renderer while
+*	the most recent complete state is actually displayed, operating
+*	as a front and back buffer.
+*/
+void Game::GenerateOutput()
+{
+	/* Clear back buffer */
+
+	// Set draw color to blue
+	SDL_SetRenderDrawColor(
+		mRenderer,
+		0,	// r
+		0,	// g
+		0,	// b
+		0	// a
+	);
+
+	SDL_RenderClear(mRenderer);
+
+	/* Draw game scene */
+
+	// Set draw color to white
+	SDL_SetRenderDrawColor(
+		mRenderer,
+		255,	// r
+		255,	// g
+		255,	// b
+		255		// a
+	);
+
+	// Create top wall and render
+	SDL_FRect wall{
+		0,		// top left x
+		0,		// top left y
+		windowWidth,
+		thickness
+	};
+	SDL_RenderFillRect(mRenderer, &wall);
+
+	// Update position for bottom wall and render
+	wall.y = windowHeight - thickness;
+	SDL_RenderFillRect(mRenderer, &wall);
+
+	// TEMP: right wall for testing before adding player 2
+	SDL_FRect rightWall{
+		windowWidth - thickness,
+		0,
+		thickness,
+		windowHeight
+	};
+	SDL_RenderFillRect(mRenderer, &rightWall);
+
+	// Render net
+	SDL_RenderFillRects(mRenderer, segments, numSegments);
+
+	// Create ball and render
+	SDL_FRect ball{
+		mBallPos.x - thickness / 2,
+		mBallPos.y - thickness / 2,
+		thickness,
+		thickness
+	};
+	SDL_RenderFillRect(mRenderer, &ball);
+
+	// Create paddle and render
+	SDL_FRect paddle{
+		mPaddlePos.x + thickness / 2,
+		mPaddlePos.y - paddleHeight / 2,
+		thickness,
+		paddleHeight
+	};
+	SDL_RenderFillRect(mRenderer, &paddle);
+
+	/* Swap the buffers */
+
+	SDL_RenderPresent(mRenderer);
+}
+
+/** Main game loop that calls each frame step function. */
+void Game::RunLoop()
+{
+	while (mIsRunning)
+	{
+		ProcessInput();
+		UpdateGame();
+		GenerateOutput();
+	}
+}
+
+/** Close SDL after destroying the initialized. */
+void Game::Shutdown()
+{
+	SDL_DestroyRenderer(mRenderer);
+	SDL_DestroyWindow(mWindow);
+	SDL_Quit();
+}

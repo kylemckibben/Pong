@@ -24,9 +24,12 @@ Game::Game()
 	mWindow = nullptr;
 	mRenderer = nullptr;
 	mIsRunning = true;
-	mPaddlePos.x = 0.0f;
-	mPaddlePos.y = windowHeight / 2.0f;
-	mPaddleDir = 0;
+	mPaddlePosP1.x = 0.0f;
+	mPaddlePosP1.y = windowHeight / 2.0f;
+	mPaddleDirP1 = 0;
+	mPaddlePosP2.x = windowWidth;
+	mPaddlePosP2.y = windowHeight / 2.0f;
+	mPaddleDirP2 = 0;
 	mBallPos.x = windowWidth / 2.0f;
 	mBallPos.y = windowHeight / 2.0f;
 	mBallVel.x = -300.0f;
@@ -103,11 +106,19 @@ void Game::ProcessInput()
 	if (state[SDL_SCANCODE_ESCAPE])
 		mIsRunning = false;
 
-	mPaddleDir = 0; // reset paddle direction to avoid drift
+	// P1 paddle inputs
+	mPaddleDirP1 = 0; // reset paddle direction to avoid drift
 	if (state[SDL_SCANCODE_W])
-		mPaddleDir -= 1;
+		mPaddleDirP1 -= 1;
 	if (state[SDL_SCANCODE_S])
-		mPaddleDir += 1;
+		mPaddleDirP1 += 1;
+
+	// P2 paddle inputs
+	mPaddleDirP2 = 0; // reset paddle direction to avoid drift
+	if (state[SDL_SCANCODE_I])
+		mPaddleDirP2 -= 1;
+	if (state[SDL_SCANCODE_K])
+		mPaddleDirP2 += 1;
 }
 
 /** Second main step of game loop. Update game objects as functions
@@ -127,16 +138,25 @@ void Game::UpdateGame()
 	if (deltaTime > 0.05f)
 		deltaTime = 0.05f;
 
-	// Update the paddle position with guards in place to prevent going off screen
+	// Update the paddle positions with guards in place to prevent going off screen
 	// by checking that the center of the paddle remains half the paddle height in
 	// bounds accounting for wall thickness.
-	if (mPaddleDir != 0)
+	if (mPaddleDirP1 != 0)
 	{
-		mPaddlePos.y += mPaddleDir * 300.0f * deltaTime;
-		if (mPaddlePos.y < (paddleHeight / 2.0f + thickness))
-			mPaddlePos.y = paddleHeight / 2.0f + thickness;
-		else if (mPaddlePos.y > (windowHeight - paddleHeight / 2.0f - thickness))
-			mPaddlePos.y = windowHeight - paddleHeight / 2.0f - thickness;
+		mPaddlePosP1.y += mPaddleDirP1 * 300.0f * deltaTime;
+		if (mPaddlePosP1.y < (paddleHeight / 2.0f + thickness))
+			mPaddlePosP1.y = paddleHeight / 2.0f + thickness;
+		else if (mPaddlePosP1.y > (windowHeight - paddleHeight / 2.0f - thickness))
+			mPaddlePosP1.y = windowHeight - paddleHeight / 2.0f - thickness;
+	}
+
+	if (mPaddleDirP2 != 0)
+	{
+		mPaddlePosP2.y += mPaddleDirP2 * 300.0f * deltaTime;
+		if (mPaddlePosP2.y < (paddleHeight / 2.0f + thickness))
+			mPaddlePosP2.y = paddleHeight / 2.0f + thickness;
+		else if (mPaddlePosP2.y > (windowHeight - paddleHeight / 2.0f - thickness))
+			mPaddlePosP2.y = windowHeight - paddleHeight / 2.0f - thickness;
 	}
 
 	// Detect when the ball collides with other game objects and update the
@@ -150,19 +170,21 @@ void Game::UpdateGame()
 	if (mBallPos.y >= windowHeight - thickness && mBallVel.y > 0.0f)
 		mBallVel.y *= -1;
 
-	// TEMP: right wall collision
-	if (mBallPos.x >= windowWidth - thickness && mBallVel.x > 0.0f)
-		mBallVel.x *= -1;
-
-	// paddle collision
-	float diff = fabsf(mBallPos.y - mPaddlePos.y);
-	if (diff <= paddleHeight / 2.0f &&
+	// Paddle collisions
+	float diffP1 = fabsf(mBallPos.y - mPaddlePosP1.y);
+	if (diffP1 <= paddleHeight / 2.0f &&
 		(mBallPos.x <= 25.0f && mBallPos.x >= 20.0f) &&
 		mBallVel.x < 0.0f
 		) mBallVel.x *= -1.0f;
 
+	float diffP2 = fabsf(mBallPos.y - mPaddlePosP2.y);
+	if (diffP2 <= paddleHeight / 2.0f &&
+		(mBallPos.x >= windowWidth - 25.0f && mBallPos.x <= windowWidth - 20.0f) &&
+		mBallVel.x > 0.0f
+		) mBallVel.x *= -1.0f;
+
 	// Reset ball position if it goes off screen
-	if (mBallPos.x < 0.0f)
+	if (mBallPos.x < 0.0f || mBallPos.x > windowWidth)
 	{
 		mBallPos.x = windowWidth / 2.0f;
 		mBallPos.y = windowHeight / 2.0f;
@@ -222,15 +244,6 @@ void Game::GenerateOutput()
 	wall.y = windowHeight - thickness;
 	SDL_RenderFillRect(mRenderer, &wall);
 
-	// TEMP: right wall for testing before adding player 2
-	SDL_FRect rightWall{
-		windowWidth - thickness,
-		0,
-		thickness,
-		windowHeight
-	};
-	SDL_RenderFillRect(mRenderer, &rightWall);
-
 	// Render net
 	SDL_RenderFillRects(mRenderer, segments, numSegments);
 
@@ -243,14 +256,22 @@ void Game::GenerateOutput()
 	};
 	SDL_RenderFillRect(mRenderer, &ball);
 
-	// Create paddle and render
-	SDL_FRect paddle{
-		mPaddlePos.x + thickness / 2,
-		mPaddlePos.y - paddleHeight / 2,
+	// Create paddles and render
+	SDL_FRect paddleP1{
+		mPaddlePosP1.x + thickness / 2,
+		mPaddlePosP1.y - paddleHeight / 2,
 		thickness,
 		paddleHeight
 	};
-	SDL_RenderFillRect(mRenderer, &paddle);
+	SDL_RenderFillRect(mRenderer, &paddleP1);
+
+	SDL_FRect paddleP2{
+		mPaddlePosP2.x - thickness * 1.5,
+		mPaddlePosP2.y - paddleHeight / 2,
+		thickness,
+		paddleHeight
+	};
+	SDL_RenderFillRect(mRenderer, &paddleP2);
 
 	/* Swap the buffers */
 

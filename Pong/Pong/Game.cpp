@@ -1,4 +1,5 @@
 #include "Game.h"
+#include <random>
 
 // Window constants
 const Uint16 windowWidth = 1024;
@@ -18,6 +19,14 @@ SDL_FRect segments[numSegments]; // yeah yeah I know it's not a const
 // Paddle constants
 const Uint16 paddleHeight = windowHeight / 8;
 
+// Velocity constants
+// Serve has a range in the Y direction
+const float serveVelocityX = -300.0f;
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<> dist(-100, 100);
+const float serveVelocityY = dist(gen);
+
 Game::Game()
 {
 	mTicksCount = 0;
@@ -32,8 +41,9 @@ Game::Game()
 	mPaddleDirP2 = 0;
 	mBallPos.x = windowWidth / 2.0f;
 	mBallPos.y = windowHeight / 2.0f;
-	mBallVel.x = -300.0f;
-	mBallVel.y = 335.0f;
+	mBallVel.x = serveVelocityX;
+	mBallVel.y = serveVelocityY;
+	mIsHit = false;
 }
 
 /** Initializes the SDL library with specified subsystems (currently just video),
@@ -172,22 +182,52 @@ void Game::UpdateGame()
 
 	// Paddle collisions
 	float diffP1 = fabsf(mBallPos.y - mPaddlePosP1.y);
-	if (diffP1 <= paddleHeight / 2.0f &&
-		(mBallPos.x <= 25.0f && mBallPos.x >= 20.0f) &&
+	if (diffP1 <= paddleHeight / 2.0f && 
+		(mBallPos.x <= 25.0f && mBallPos.x >= 20.0f) && 
 		mBallVel.x < 0.0f
-		) mBallVel.x *= -1.0f;
+	)
+	{
+		if (mIsHit == false)
+		{
+			mBallVel.x *= 2.0f;
+			mBallVel.y *= 2.0f;
+			mIsHit = true;
+		}
+		mBallVel.x *= -1.0f;
+	}
 
 	float diffP2 = fabsf(mBallPos.y - mPaddlePosP2.y);
 	if (diffP2 <= paddleHeight / 2.0f &&
 		(mBallPos.x >= windowWidth - 25.0f && mBallPos.x <= windowWidth - 20.0f) &&
 		mBallVel.x > 0.0f
-		) mBallVel.x *= -1.0f;
+		)
+	{
+		if (mIsHit == false)
+		{
+			mBallVel.x *= 2.0f;
+			mBallVel.y *= 2.0f;
+			mIsHit = true;
+		}
+		mBallVel.x *= -1.0f;
+	}
 
 	// Reset ball position if it goes off screen
-	if (mBallPos.x < 0.0f || mBallPos.x > windowWidth)
+	if (mBallPos.x < 0.0f)
 	{
 		mBallPos.x = windowWidth / 2.0f;
 		mBallPos.y = windowHeight / 2.0f;
+		mIsHit = false;
+		mBallVel.x = serveVelocityX;
+		mBallVel.y = dist(gen);
+	}
+
+	if (mBallPos.x > windowWidth)
+	{
+		mBallPos.x = windowWidth / 2.0f;
+		mBallPos.y = windowHeight / 2.0f;
+		mIsHit = false;
+		mBallVel.x = -serveVelocityX;
+		mBallVel.y = dist(gen);
 	}
 
 	// Update the ball position in terms of velocity.

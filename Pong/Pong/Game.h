@@ -34,4 +34,5 @@ private:
 
 	Vector2 mBallPos;
 	Vector2 mBallVel;
+	bool mIsHit;
 };

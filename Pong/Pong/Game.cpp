@@ -1,5 +1,6 @@
 #include "Game.h"
 #include <random>
+#include <string>
 
 // Window constants
 const Uint16 windowWidth = 1024;
@@ -20,12 +21,20 @@ SDL_FRect segments[numSegments]; // yeah yeah I know it's not a const
 const Uint16 paddleHeight = windowHeight / 8;
 
 // Velocity constants
-// Serve has a range in the Y direction
+// Serve has a range of possible values in the Y direction
 const float serveVelocityX = -300.0f;
 std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_int_distribution<> dist(-100, 100);
 const float serveVelocityY = dist(gen);
+
+// Score display
+SDL_Texture* p1Score;
+SDL_Texture* p2Score;
+SDL_Surface* p1ScoreSurface;
+SDL_Surface* p2ScoreSurface;
+SDL_FRect p1ScoreTextBox;
+SDL_FRect p2ScoreTextBox;
 
 Game::Game()
 {
@@ -39,6 +48,8 @@ Game::Game()
 	mPaddlePosP2.x = windowWidth;
 	mPaddlePosP2.y = windowHeight / 2.0f;
 	mPaddleDirP2 = 0;
+	mP1Score = 0;
+	mP2Score = 0;
 	mBallPos.x = windowWidth / 2.0f;
 	mBallPos.y = windowHeight / 2.0f;
 	mBallVel.x = serveVelocityX;
@@ -90,6 +101,14 @@ bool Game::Initialize()
 		segments[i] = segment;
 		segmentY += unit;
 	}
+
+	bool ttfResult = TTF_Init();
+	if (!ttfResult)
+	{
+		SDL_Log("Unable to initialize TTF: %s", SDL_GetError());
+		return false;
+	}
+	DrawScores();
 
 	return true;
 }
@@ -219,6 +238,8 @@ void Game::UpdateGame()
 		mIsHit = false;
 		mBallVel.x = serveVelocityX;
 		mBallVel.y = dist(gen);
+		mP2Score++;
+		DrawScores();
 	}
 
 	if (mBallPos.x > windowWidth)
@@ -228,6 +249,8 @@ void Game::UpdateGame()
 		mIsHit = false;
 		mBallVel.x = -serveVelocityX;
 		mBallVel.y = dist(gen);
+		mP1Score++;
+		DrawScores();
 	}
 
 	// Update the ball position in terms of velocity.
@@ -313,6 +336,11 @@ void Game::GenerateOutput()
 	};
 	SDL_RenderFillRect(mRenderer, &paddleP2);
 
+	// Draw Scores
+	if (p1Score)
+	SDL_RenderTexture(mRenderer, p1Score, NULL, &p1ScoreTextBox);
+	SDL_RenderTexture(mRenderer, p2Score, NULL, &p2ScoreTextBox);
+
 	/* Swap the buffers */
 
 	SDL_RenderPresent(mRenderer);
@@ -332,7 +360,49 @@ void Game::RunLoop()
 /** Close SDL after destroying the initialized. */
 void Game::Shutdown()
 {
+	SDL_DestroySurface(p1ScoreSurface);
+	SDL_DestroySurface(p2ScoreSurface);
+	SDL_DestroyTexture(p1Score);
+	SDL_DestroyTexture(p2Score);
 	SDL_DestroyRenderer(mRenderer);
 	SDL_DestroyWindow(mWindow);
+	TTF_Quit();
 	SDL_Quit();
+}
+
+/** Handle drawing player scores to screen */
+void Game::DrawScores()
+{
+	TTF_Font* font = TTF_OpenFont("PressStart2P-Regular.ttf", 128);
+	SDL_Color white = { 255, 255, 255, 255 };
+
+	// p1 score
+	std::string p1ScoreString = std::to_string(mP1Score);
+	p1ScoreSurface = TTF_RenderText_Solid(
+		font, 
+		p1ScoreString.c_str(), 
+		p1ScoreString.length(), 
+		white);
+	p1Score = SDL_CreateTextureFromSurface(mRenderer, p1ScoreSurface);
+	p1ScoreTextBox = {
+		windowWidth / 4.0f,
+		30.0f,
+		100.0f,
+		100.0f
+	};
+
+	// p2 score
+	std::string p2ScoreString = std::to_string(mP2Score);
+	p2ScoreSurface = TTF_RenderText_Solid(
+		font, 
+		p2ScoreString.c_str(), 
+		p2ScoreString.length(), 
+		white);
+	p2Score = SDL_CreateTextureFromSurface(mRenderer, p2ScoreSurface);
+	p2ScoreTextBox = {
+		windowWidth - (windowWidth / 4.0f),
+		30.0f,
+		100.0f,
+		100.0f
+	};
 }

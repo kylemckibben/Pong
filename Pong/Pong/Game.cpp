@@ -254,7 +254,6 @@ void Game::UpdateGame()
 		mBallVel.x = serveVelocityX;
 		mBallVel.y = dist(gen);
 		mP2Score++;
-		DrawScores();
 	}
 
 	if (mBallPos.x > windowWidth)
@@ -265,7 +264,6 @@ void Game::UpdateGame()
 		mBallVel.x = -serveVelocityX;
 		mBallVel.y = dist(gen);
 		mP1Score++;
-		DrawScores();
 	}
 
 
@@ -353,9 +351,7 @@ void Game::GenerateOutput()
 	SDL_RenderFillRect(mRenderer, &paddleP2);
 
 	// Draw Scores
-	if (p1Score)
-	SDL_RenderTexture(mRenderer, p1Score, NULL, &p1ScoreTextBox);
-	SDL_RenderTexture(mRenderer, p2Score, NULL, &p2ScoreTextBox);
+	DrawScores();
 
 	// Display winner
 	if (mP1Score == winningScore || mP2Score == winningScore) {
@@ -440,6 +436,13 @@ void Game::DrawScores()
 		100.0f,
 		100.0f
 	};
+
+	SDL_RenderTexture(mRenderer, p1Score, NULL, &p1ScoreTextBox);
+	SDL_RenderTexture(mRenderer, p2Score, NULL, &p2ScoreTextBox);
+	SDL_DestroySurface(p1ScoreSurface);
+	SDL_DestroySurface(p2ScoreSurface);
+	SDL_DestroyTexture(p1Score);
+	SDL_DestroyTexture(p2Score);
 }
 
 void Game::DisplayWinner(float x, float y)

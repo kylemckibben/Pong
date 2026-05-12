@@ -32,5 +32,4 @@ There is no menu, to quit you either hit 'esc', click the 'x' on the window, alt
 
 ## Upcoming features
 - Menu to start the game
-- Release with an executable
 - Single player vs NPC support

@@ -3,19 +3,21 @@
 This is a Pong clone I am building to begin learning SDL. Pong is a familiar concept, and seems a tried and true "hello, world" as I venture into game programming.
 
 ## How to play
-Launch the executable to start the game (should be in original extracted directory)
+1. Download the latest release and extract.
+2. Launch the executable to start the game (should be in original extracted directory).
 #### First to 11 wins.
 
 ### Controls
 P1:
-w - up
-s - down
+* w - up
+* s - down
 
 P2:
-i - up
-k - down
+* i - up
+* k - down
 
 Esc - exit game
+
 Exit and relaunch game for new match 
 
 ## Background

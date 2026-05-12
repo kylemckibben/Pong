@@ -8,12 +8,11 @@ The initial project from the book has 3 walls and just a single player, with add
 I am adding a second player, but not multiple balls, since I am instead choosing to stay true to the original with my clone.
 
 ## Current state
-2 player support with scoring (game runs infinitely still).
+2 player support with scoring, game ends on 11 points.
 Ball has a range in the Y direction of velocity for the initial serve, and increases velocity upon the first hit after a serve.
 There is no menu, to quit you either hit 'esc', click the 'x' on the window, alt+f4, etc.
 
 ## Upcoming features
 - Menu to start the game
-- Game end on 11 points + winner display
 - Release with an executable
 - Single player vs NPC support

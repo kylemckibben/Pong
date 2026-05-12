@@ -2,25 +2,28 @@
 #include <random>
 #include <string>
 
-// Window constants
+// Window
 const Uint16 windowWidth = 1024;
 const Uint16 windowHeight = 768;
 
-// Wall constants
+// Wall
 const Uint16 thickness = 15;
 
-// Dividing line ("net") constants
+// Score
+const Uint8 winningScore = 11;
+
+// Dividing line ("net")
 const Uint16 numSegments = 30;
 const float unit = (windowHeight - thickness) / numSegments;
 const float segmentWidth = 10.0f;
 const float segmentHeight = unit / 2.0f;
 const float segmentX = (windowWidth / 2.0f) - (segmentWidth - 2.0f);
-SDL_FRect segments[numSegments]; // yeah yeah I know it's not a const
+SDL_FRect segments[numSegments];
 
-// Paddle constants
+// Paddle
 const Uint16 paddleHeight = windowHeight / 8;
 
-// Velocity constants
+// Velocity
 // Serve has a range of possible values in the Y direction
 const float serveVelocityX = -300.0f;
 std::random_device rd;
@@ -28,13 +31,21 @@ std::mt19937 gen(rd());
 std::uniform_int_distribution<> dist(-100, 100);
 const float serveVelocityY = dist(gen);
 
+// Font
+TTF_Font* font;
+
 // Score display
-SDL_Texture* p1Score;
-SDL_Texture* p2Score;
 SDL_Surface* p1ScoreSurface;
 SDL_Surface* p2ScoreSurface;
+SDL_Texture* p1Score;
+SDL_Texture* p2Score;
 SDL_FRect p1ScoreTextBox;
 SDL_FRect p2ScoreTextBox;
+
+// Winner display
+SDL_Surface* winnerSurface;
+SDL_Texture* winner;
+SDL_FRect winnerTextBox;
 
 Game::Game()
 {
@@ -72,7 +83,7 @@ bool Game::Initialize()
 		return false;
 	}
 
-	const char* windowTitle = "Game Programming in C++ (Ch1)";
+	const char* windowTitle = "Pong";
 	const Uint32 windowFlags = 0;
 
 	mWindow = SDL_CreateWindow(windowTitle, windowWidth, windowHeight, windowFlags);
@@ -109,6 +120,10 @@ bool Game::Initialize()
 		return false;
 	}
 	DrawScores();
+
+	font = TTF_OpenFont("PressStart2P-Regular.ttf", 128);
+	if (!font)
+		SDL_Log("No font: %s", SDL_GetError());
 
 	return true;
 }
@@ -253,6 +268,7 @@ void Game::UpdateGame()
 		DrawScores();
 	}
 
+
 	// Update the ball position in terms of velocity.
 	mBallPos.x += mBallVel.x * deltaTime;
 	mBallPos.y += mBallVel.y * deltaTime;
@@ -272,7 +288,7 @@ void Game::GenerateOutput()
 {
 	/* Clear back buffer */
 
-	// Set draw color to blue
+	// Set draw color to black
 	SDL_SetRenderDrawColor(
 		mRenderer,
 		0,	// r
@@ -341,6 +357,24 @@ void Game::GenerateOutput()
 	SDL_RenderTexture(mRenderer, p1Score, NULL, &p1ScoreTextBox);
 	SDL_RenderTexture(mRenderer, p2Score, NULL, &p2ScoreTextBox);
 
+	// Display winner
+	if (mP1Score == winningScore || mP2Score == winningScore) {
+		if (mP1Score == winningScore)
+			DisplayWinner(windowWidth / 6.0f, windowHeight - (windowHeight / 3.0f));
+		else
+			DisplayWinner(windowWidth - (windowWidth / 3.0f), windowHeight - (windowHeight / 3.0f));
+		mBallVel.x = 0;
+		mBallVel.y = 0;
+		SDL_SetRenderDrawColor(
+			mRenderer,
+			0,	// r
+			0,	// g
+			0,	// b
+			0	// a
+		);
+		SDL_RenderFillRect(mRenderer, &ball);
+	}
+
 	/* Swap the buffers */
 
 	SDL_RenderPresent(mRenderer);
@@ -362,8 +396,10 @@ void Game::Shutdown()
 {
 	SDL_DestroySurface(p1ScoreSurface);
 	SDL_DestroySurface(p2ScoreSurface);
+	SDL_DestroySurface(winnerSurface);
 	SDL_DestroyTexture(p1Score);
 	SDL_DestroyTexture(p2Score);
+	SDL_DestroyTexture(winner);
 	SDL_DestroyRenderer(mRenderer);
 	SDL_DestroyWindow(mWindow);
 	TTF_Quit();
@@ -373,7 +409,6 @@ void Game::Shutdown()
 /** Handle drawing player scores to screen */
 void Game::DrawScores()
 {
-	TTF_Font* font = TTF_OpenFont("PressStart2P-Regular.ttf", 128);
 	SDL_Color white = { 255, 255, 255, 255 };
 
 	// p1 score
@@ -405,4 +440,32 @@ void Game::DrawScores()
 		100.0f,
 		100.0f
 	};
+}
+
+void Game::DisplayWinner(float x, float y)
+{
+	SDL_Color white = { 255, 255, 255, 255 };
+
+	std::string winText = "winner!";
+	winnerSurface = TTF_RenderText_Solid(
+		font, 
+		winText.c_str(), 
+		winText.length(), 
+		white);
+	if (!winnerSurface)
+		SDL_Log("No surface: %s", SDL_GetError());
+
+	winner = SDL_CreateTextureFromSurface(mRenderer, winnerSurface);
+	if (!winner)
+		SDL_Log("No texture: %s", SDL_GetError());
+
+	winnerTextBox = {
+		x,
+		y,
+		256.0f,
+		100.0f
+	};
+	SDL_RenderTexture(mRenderer, winner, NULL, &winnerTextBox);
+	SDL_DestroySurface(winnerSurface);
+	SDL_DestroyTexture(winner);
 }

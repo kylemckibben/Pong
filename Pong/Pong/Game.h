@@ -23,6 +23,7 @@ private:
 	void UpdateGame();
 	void GenerateOutput();
 	void DrawScores();
+	void DisplayWinner(float, float);
 
 	Uint64 mTicksCount;
 	SDL_Window* mWindow;

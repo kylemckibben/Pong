@@ -1,6 +1,22 @@
 # Pong (a tribute)
 
-This is a Pong clone I am building to begin learning SDL. Pong is a familiar concept, and seems a tried and true "hello, world" as I venture into game programming.  
+This is a Pong clone I am building to begin learning SDL. Pong is a familiar concept, and seems a tried and true "hello, world" as I venture into game programming.
+
+## How to play
+Launch the executable to start the game (should be in original extracted directory)
+#### First to 11 wins.
+
+### Controls
+P1:
+w - up
+s - down
+
+P2:
+i - up
+k - down
+
+Esc - exit game
+Exit and relaunch game for new match 
 
 ## Background
 This started with the first chapter in "Game Programming in C++: Creating 3D Games" by Sanjay Madhav; the edition of the book I have uses SDL2 but I am using SDL3.

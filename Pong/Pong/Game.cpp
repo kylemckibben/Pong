@@ -445,6 +445,7 @@ void Game::DrawScores()
 	SDL_DestroyTexture(p2Score);
 }
 
+/** Display winning text at a location determined by the player that won. */
 void Game::DisplayWinner(float x, float y)
 {
 	SDL_Color white = { 255, 255, 255, 255 };

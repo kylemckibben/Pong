@@ -402,7 +402,7 @@ void Game::Shutdown()
 	SDL_Quit();
 }
 
-/** Handle drawing player scores to screen */
+/** Handle drawing player scores to screen. */
 void Game::DrawScores()
 {
 	SDL_Color white = { 255, 255, 255, 255 };
